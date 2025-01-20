@@ -104,4 +104,4 @@ if __name__ == "__main__":
     spotify_random_albums = SpotifyRandomAlbums(access_token)
     random_albums = spotify_random_albums.get_random_albums(5)
     for album in random_albums:
-        print(f'{album["name"]} by {album["artists"][0]["name"]} ({album["release_date"]})')
+        print(f'{album["name"]} by {album["artists"][0]["name"]} ({album["release_date"]}): {album['uri']}')
