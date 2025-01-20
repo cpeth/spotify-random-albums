@@ -1,0 +1,2 @@
+export "SPOTIFY_CLIENT_ID"=7546fa81be1e461c8d1de54ba5e4a4b5
+export "SPOTIFY_CLIENT_SECRET"=db969adfbffe4928bd8defbd8fd3d241

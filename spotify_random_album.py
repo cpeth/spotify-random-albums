@@ -2,7 +2,10 @@ import httpx
 import random
 import os
 import webbrowser
+import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
+
+AUTH_CODE = 'QB6uN8oGzU6Mjv4haDGcHaGIscCoSJFDri7j-2PERM_ThsJ2iPv1IY1NXxe56Mlart36xQ1TU8RJga-OV6siqj5I7tnGF17G9TBP_qbUHvKmYFLj3kFwNVR_i4ma5s6Oz7WCBlZmrCqmRB61t6JUe5xGL9bUDo_GMuRdGwCJ26Cj1vYI2KlQrbIGs1uELtjnUTuSnbtLPH7DqXe_gLAa-RlJYc73LRlsDBNJX1cU2v0TxDsNM8rCy34q-pv'
 
 class SpotifyRandomAlbums:
     def __init__(self, access_token):
@@ -14,9 +17,14 @@ class SpotifyRandomAlbums:
 
     def get_followed_artists(self):
         url = f"{self.base_url}/me/following?type=artist"
-        response = httpx.get(url, headers=self.headers)
-        response.raise_for_status()
-        artists = response.json()["artists"]["items"]
+        artists = []
+        while url:
+            response = httpx.get(url, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+            artists.extend(data["artists"]["items"])
+            url = data["artists"]["next"]
+        print(f'retrieved {len(artists)} artists')
         return [artist["id"] for artist in artists]
 
     def get_albums_by_artist(self, artist_id):
@@ -28,20 +36,14 @@ class SpotifyRandomAlbums:
 
     def get_random_albums(self, n):
         followed_artists = self.get_followed_artists()
-        all_albums = []
-        for artist_id in followed_artists:
+        random_artists = random.sample(followed_artists, n)
+        result_albums = []
+        for artist_id in random_artists:
             albums = self.get_albums_by_artist(artist_id)
-            all_albums.extend(albums)
-        return random.sample(all_albums, n)
-
-
-
-# Example usage:
-# access_token = "your_spotify_access_token"
-# spotify_random_albums = SpotifyRandomAlbums(access_token)
-# random_albums = spotify_random_albums.get_random_albums(5)
-# for album in random_albums:
-#     print(album["name"])
+            if albums:
+                album = random.choice(albums)
+                result_albums.append(album)
+        return result_albums
 
 def get_access_token():
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
@@ -54,15 +56,6 @@ def get_access_token():
     })
     auth_response.raise_for_status()
     return auth_response.json()["access_token"]
-
-# Example usage:
-# access_token = get_access_token()
-# spotify_random_albums = SpotifyRandomAlbums(access_token)
-# random_albums = spotify_random_albums.get_random_albums(5)
-# for album in random_albums:
-#     print(album["name"])
-
-import urllib.parse
 
 class SpotifyAuthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -79,7 +72,7 @@ def get_authorization_code(client_id, redirect_uri):
         "?response_type=code"
         f"&client_id={client_id}"
         f"&redirect_uri={urllib.parse.quote(redirect_uri)}"
-        "&scope=user-follow-read"
+        "&scope=user-follow-read user-library-read app-remote-control streaming"
     )
     webbrowser.open(auth_url)
     
@@ -101,13 +94,14 @@ def get_access_token_with_auth_code(client_id, client_secret, redirect_uri, auth
     response.raise_for_status()
     return response.json()["access_token"]
 
-# Example usage:
-# client_id = os.getenv("SPOTIFY_CLIENT_ID")
-# client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-# redirect_uri = "http://localhost:8080"
-# auth_code = get_authorization_code(client_id, redirect_uri)
-# access_token = get_access_token_with_auth_code(client_id, client_secret, redirect_uri, auth_code)
-# spotify_random_albums = SpotifyRandomAlbums(access_token)
-# random_albums = spotify_random_albums.get_random_albums(5)
-# for album in random_albums:
-#     print(album["name"])
+if __name__ == "__main__":
+    client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    redirect_uri = "http://localhost:8080"
+    auth_code = get_authorization_code(client_id, redirect_uri)
+    print(f'auth_code: {auth_code}')
+    access_token = get_access_token_with_auth_code(client_id, client_secret, redirect_uri, auth_code)
+    spotify_random_albums = SpotifyRandomAlbums(access_token)
+    random_albums = spotify_random_albums.get_random_albums(5)
+    for album in random_albums:
+        print(f'{album["name"]} by {album["artists"][0]["name"]} ({album["release_date"]})')
